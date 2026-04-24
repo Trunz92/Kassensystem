@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Kassensystem</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f0f2f5;
+            color: #1a1a2e;
+            min-height: 100vh;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* ── Header ───────────────────────────────────────── */
+        .app-header {
+            background: #1a1a2e;
+            color: white;
+            padding: 14px 16px;
+            text-align: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.4);
+        }
+
+        .app-header h1 {
+            font-size: 1.35rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        /* ── Tab Navigation ───────────────────────────────── */
+        .tab-nav {
+            display: flex;
+            background: #16213e;
+            position: sticky;
+            top: 53px;
+            z-index: 99;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 15px 8px;
+            border: none;
+            background: transparent;
+            color: rgba(255,255,255,0.55);
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: color 0.2s, border-color 0.2s, background 0.2s;
+            position: relative;
+        }
+
+        .tab-btn.active {
+            color: white;
+            border-bottom-color: #e67e22;
+        }
+
+        .tab-btn:not(.active):hover {
+            background: rgba(255,255,255,0.07);
+        }
+
+        .tab-badge {
+            position: absolute;
+            top: 7px;
+            right: 14px;
+            background: #e74c3c;
+            color: white;
+            border-radius: 20px;
+            padding: 1px 7px;
+            font-size: 0.75rem;
+            font-weight: 800;
+            display: none;
+        }
+
+        /* ── Views ─────────────────────────────────────────── */
+        .view {
+            display: none;
+            padding: 16px;
+            padding-bottom: 30px;
+        }
+
+        .view.active {
+            display: block;
+        }
+
+        /* ── Daily Revenue ──────────────────────────────────── */
+        .daily-revenue {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: white;
+            border-radius: 16px;
+            padding: 16px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        .daily-revenue .label {
+            font-size: 0.85rem;
+            opacity: 0.65;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+        }
+
+        .daily-revenue .amount {
+            font-size: 1.9rem;
+            font-weight: 800;
+            color: #f39c12;
+        }
+
+        /* ── Products Grid ──────────────────────────────────── */
+        .products-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .product-card {
+            background: white;
+            border-radius: 18px;
+            padding: 18px 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .product-emoji {
+            font-size: 2.8rem;
+            line-height: 1;
+        }
+
+        .product-name {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #1a1a2e;
+        }
+
+        .price-row {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            background: #f9fdf9;
+            border: 2px solid #d5f0de;
+            border-radius: 10px;
+            padding: 5px 10px;
+        }
+
+        .price-row .euro {
+            color: #27ae60;
+            font-weight: 700;
+            font-size: 1rem;
+        }
+
+        .price-input {
+            width: 56px;
+            border: none;
+            background: transparent;
+            font-size: 1rem;
+            font-weight: 700;
+            color: #27ae60;
+            text-align: center;
+        }
+
+        .price-input:focus {
+            outline: none;
+            color: #1e8449;
+        }
+
+        .qty-control {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            width: 100%;
+            justify-content: center;
+        }
+
+        .qty-btn {
+            width: 46px;
+            height: 46px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.6rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.08s;
+            line-height: 1;
+            flex-shrink: 0;
+        }
+
+        .qty-btn:active {
+            transform: scale(0.88);
+        }
+
+        .qty-btn.minus {
+            background: #fde8e8;
+            color: #e74c3c;
+        }
+
+        .qty-btn.minus:disabled {
+            opacity: 0.35;
+        }
+
+        .qty-btn.plus {
+            background: #e0f7ea;
+            color: #27ae60;
+        }
+
+        .qty-display {
+            font-size: 1.6rem;
+            font-weight: 800;
+            min-width: 34px;
+            text-align: center;
+            color: #1a1a2e;
+        }
+
+        /* ── Order Summary ──────────────────────────────────── */
+        .order-summary {
+            background: white;
+            border-radius: 18px;
+            padding: 18px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+            margin-bottom: 14px;
+        }
+
+        .order-summary-title {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: #999;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-bottom: 12px;
+        }
+
+        .order-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 9px 0;
+            border-bottom: 1px solid #f3f3f3;
+            font-size: 0.95rem;
+        }
+
+        .order-item:last-child {
+            border-bottom: none;
+        }
+
+        .order-item-name {
+            font-weight: 600;
+        }
+
+        .order-item-price {
+            color: #27ae60;
+            font-weight: 700;
+        }
+
+        .order-empty {
+            color: #bbb;
+            font-size: 0.9rem;
+            text-align: center;
+            padding: 12px 0;
+        }
+
+        .total-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 2px solid #1a1a2e;
+        }
+
+        .total-label {
+            font-size: 1.15rem;
+            font-weight: 700;
+        }
+
+        .total-amount {
+            font-size: 1.75rem;
+            font-weight: 800;
+            color: #e74c3c;
+        }
+
+        /* ── Action Buttons ─────────────────────────────────── */
+        .btn {
+            width: 100%;
+            padding: 18px;
+            border: none;
+            border-radius: 16px;
+            font-size: 1.15rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.08s, opacity 0.2s;
+            margin-bottom: 10px;
+            letter-spacing: 0.2px;
+        }
+
+        .btn:active:not(:disabled) {
+            transform: scale(0.97);
+        }
+
+        .btn-submit {
+            background: linear-gradient(135deg, #27ae60, #2ecc71);
+            color: white;
+            box-shadow: 0 5px 18px rgba(39,174,96,0.35);
+        }
+
+        .btn-reset {
+            background: linear-gradient(135deg, #c0392b, #e74c3c);
+            color: white;
+            box-shadow: 0 5px 18px rgba(231,76,60,0.28);
+        }
+
+        .btn:disabled {
+            background: #d5d8dc;
+            box-shadow: none;
+            cursor: not-allowed;
+            color: #aaa;
+        }
+
+        /* ── Kitchen View ───────────────────────────────────── */
+        .kitchen-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .kitchen-header h2 {
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+
+        .kitchen-order-card {
+            background: white;
+            border-radius: 18px;
+            padding: 16px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            margin-bottom: 16px;
+            border-left: 5px solid #f39c12;
+        }
+
+        .kitchen-order-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+        }
+
+        .order-number {
+            font-size: 1rem;
+            font-weight: 800;
+            color: #1a1a2e;
+        }
+
+        .order-time {
+            font-size: 0.85rem;
+            color: #999;
+            font-weight: 600;
+        }
+
+        .kitchen-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 11px 0;
+            border-bottom: 1px solid #f5f5f5;
+        }
+
+        .kitchen-item:last-of-type {
+            border-bottom: none;
+        }
+
+        .kitchen-item-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .item-qty-badge {
+            background: #f39c12;
+            color: white;
+            border-radius: 10px;
+            padding: 5px 12px;
+            font-weight: 800;
+            font-size: 1.15rem;
+            min-width: 44px;
+            text-align: center;
+            transition: background 0.2s;
+        }
+
+        .item-qty-badge.zero {
+            background: #bdc3c7;
+            text-decoration: line-through;
+            opacity: 0.6;
+        }
+
+        .kitchen-item-name {
+            font-size: 1.05rem;
+            font-weight: 600;
+        }
+
+        .reduce-btn {
+            width: 50px;
+            height: 50px;
+            border: none;
+            border-radius: 13px;
+            background: #fde8e8;
+            color: #e74c3c;
+            font-size: 1.6rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.08s;
+            flex-shrink: 0;
+        }
+
+        .reduce-btn:active:not(:disabled) {
+            transform: scale(0.88);
+        }
+
+        .reduce-btn:disabled {
+            opacity: 0.25;
+            cursor: not-allowed;
+        }
+
+        .kitchen-order-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 14px;
+            padding-top: 12px;
+            border-top: 2px solid #f5f5f5;
+        }
+
+        .kitchen-total {
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: #1a1a2e;
+        }
+
+        .no-orders {
+            text-align: center;
+            padding: 70px 20px;
+            color: #aaa;
+        }
+
+        .no-orders .icon {
+            font-size: 4rem;
+            margin-bottom: 14px;
+        }
+
+        .no-orders p {
+            font-size: 1.1rem;
+        }
+
+        /* ── Toast ──────────────────────────────────────────── */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(120px);
+            background: #1a1a2e;
+            color: white;
+            padding: 13px 22px;
+            border-radius: 50px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            z-index: 9999;
+            transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+            white-space: nowrap;
+            box-shadow: 0 4px 22px rgba(0,0,0,0.3);
+            pointer-events: none;
+        }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .toast.success { background: #27ae60; }
+        .toast.error   { background: #e74c3c; }
+        .toast.info    { background: #2980b9; }
+
+        /* ── Spinner ────────────────────────────────────────── */
+        .spinner {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 0.7s linear infinite;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Firebase Config Modal ──────────────────────────── */
+        .config-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(10,10,20,0.85);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .config-modal {
+            background: white;
+            border-radius: 22px;
+            padding: 26px 22px;
+            width: 100%;
+            max-width: 460px;
+            max-height: 92vh;
+            overflow-y: auto;
+        }
+
+        .config-modal h2 {
+            font-size: 1.3rem;
+            margin-bottom: 6px;
+            color: #1a1a2e;
+        }
+
+        .config-hint {
+            color: #777;
+            font-size: 0.88rem;
+            margin-bottom: 18px;
+            line-height: 1.5;
+        }
+
+        .config-hint a {
+            color: #e67e22;
+        }
+
+        .cfg-field {
+            margin-bottom: 11px;
+        }
+
+        .cfg-field label {
+            display: block;
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: #555;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+        }
+
+        .cfg-field input {
+            width: 100%;
+            padding: 11px 13px;
+            border: 2px solid #e5e5e5;
+            border-radius: 11px;
+            font-size: 0.92rem;
+            color: #1a1a2e;
+            transition: border-color 0.2s;
+        }
+
+        .cfg-field input:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+
+        .btn-cfg {
+            width: 100%;
+            padding: 17px;
+            border: none;
+            border-radius: 14px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            background: linear-gradient(135deg, #2980b9, #3498db);
+            color: white;
+            margin-top: 6px;
+            box-shadow: 0 4px 16px rgba(52,152,219,0.35);
+        }
+
+        .btn-cfg:active {
+            transform: scale(0.97);
+        }
+
+        .cfg-link-btn {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e5e5e5;
+            border-radius: 11px;
+            background: transparent;
+            font-size: 0.9rem;
+            color: #666;
+            cursor: pointer;
+            margin-top: 8px;
+        }
+
+        /* ── Responsive ─────────────────────────────────────── */
+        @media (max-width: 360px) {
+            .products-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (min-width: 600px) {
+            .products-grid {
+                grid-template-columns: 1fr 1fr 1fr 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ── Firebase Config Overlay ──────────────────────────────── -->
+<div id="configOverlay" class="config-overlay">
+    <div class="config-modal">
+        <h2>🔥 Firebase verbinden</h2>
+        <p class="config-hint">
+            Trage deine Firebase-Projektdaten ein.<br>
+            Die Daten werden lokal gespeichert.<br>
+            <a href="https://console.firebase.google.com/" target="_blank" rel="noopener">→ Firebase Console öffnen</a>
+        </p>
+        <div class="cfg-field">
+            <label>API Key</label>
+            <input id="cfg-apiKey" type="text" placeholder="AIzaSy...">
+        </div>
+        <div class="cfg-field">
+            <label>Auth Domain</label>
+            <input id="cfg-authDomain" type="text" placeholder="mein-projekt.firebaseapp.com">
+        </div>
+        <div class="cfg-field">
+            <label>Project ID</label>
+            <input id="cfg-projectId" type="text" placeholder="mein-projekt-id">
+        </div>
+        <div class="cfg-field">
+            <label>Storage Bucket</label>
+            <input id="cfg-storageBucket" type="text" placeholder="mein-projekt.appspot.com">
+        </div>
+        <div class="cfg-field">
+            <label>Messaging Sender ID</label>
+            <input id="cfg-messagingSenderId" type="text" placeholder="123456789012">
+        </div>
+        <div class="cfg-field">
+            <label>App ID</label>
+            <input id="cfg-appId" type="text" placeholder="1:123456789012:web:abc123">
+        </div>
+        <button class="btn-cfg" onclick="saveAndConnect()">Verbinden &amp; Starten ▶</button>
+        <button class="cfg-link-btn" onclick="document.getElementById('configOverlay').style.display='none'">✖ Überspringen (nur lokaler Test, kein Speichern)</button>
+    </div>
+</div>
+
+<!-- ── App Header ───────────────────────────────────────────── -->
+<div class="app-header">
+    <h1>🛒 Kassensystem</h1>
+    <button onclick="editConfig()" style="
+        position:absolute; right:14px; top:50%; transform:translateY(-50%);
+        background:rgba(255,255,255,0.15); border:none; color:white;
+        border-radius:8px; padding:6px 11px; font-size:0.85rem; cursor:pointer;">
+        ⚙️
+    </button>
+</div>
+
+<!-- ── Tab Navigation ───────────────────────────────────────── -->
+<div class="tab-nav">
+    <button class="tab-btn active" id="tab-kasse" onclick="switchView('kasse', this)">🧾 Kasse</button>
+    <button class="tab-btn" id="tab-kueche" onclick="switchView('kueche', this)">
+        👨‍🍳 Küche
+        <span class="tab-badge" id="tabBadge">0</span>
+    </button>
+</div>
+
+<!-- ── Toast ────────────────────────────────────────────────── -->
+<div id="toast" class="toast"></div>
+
+<!-- ════════════════════════════════════════════════════════════
+     KASSE VIEW
+     ════════════════════════════════════════════════════════════ -->
+<div id="view-kasse" class="view active">
+
+    <!-- Daily Revenue -->
+    <div class="daily-revenue">
+        <div>
+            <div class="label">Tagesumsatz</div>
+            <div class="amount" id="dailyRevenue">€ 0,00</div>
+        </div>
+        <div style="font-size:2.2rem">💰</div>
+    </div>
+
+    <!-- Products -->
+    <div class="products-grid" id="productsGrid"></div>
+
+    <!-- Order Summary -->
+    <div class="order-summary">
+        <div class="order-summary-title">Aktuelle Bestellung</div>
+        <div id="orderItems">
+            <div class="order-empty">Noch keine Produkte hinzugefügt</div>
+        </div>
+        <div class="total-row">
+            <span class="total-label">Gesamt</span>
+            <span class="total-amount" id="totalAmount">€ 0,00</span>
+        </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <button class="btn btn-submit" id="submitBtn" onclick="submitOrder()" disabled>
+        ✅ Bestellung abschicken
+    </button>
+    <button class="btn btn-reset" onclick="resetOrder()">
+        🗑️ Bestellung zurücksetzen
+    </button>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     KÜCHE VIEW
+     ════════════════════════════════════════════════════════════ -->
+<div id="view-kueche" class="view">
+    <div class="kitchen-header">
+        <h2>Offene Bestellungen</h2>
+        <span id="orderCountBadge" style="
+            background:#e74c3c; color:white; border-radius:20px;
+            padding:5px 14px; font-size:0.9rem; font-weight:800;">0</span>
+    </div>
+    <div id="kitchenOrders">
+        <div class="no-orders">
+            <div class="icon">🍽️</div>
+            <p>Keine offenen Bestellungen</p>
+        </div>
+    </div>
+</div>
+
+<!-- ── Firebase SDK (compat) ─────────────────────────────────── -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
+<script>
+'use strict';
+
+// ─── Product Definitions ───────────────────────────────────────────────────────
+const PRODUCTS = [
+    { id: 'pommes', name: 'Pommes', emoji: '🍟', defaultPrice: 3.00 },
+    { id: 'wurst',  name: 'Wurst',  emoji: '🌭', defaultPrice: 3.50 },
+    { id: 'steak',  name: 'Steak',  emoji: '🥩', defaultPrice: 8.00 },
+    { id: 'bier',   name: 'Bier',   emoji: '🍺', defaultPrice: 3.00 },
+];
+
+// ─── App State ─────────────────────────────────────────────────────────────────
+let db = null;
+let unsubOrders = null;
+let unsubRevenue = null;
+
+const quantities = {};
+const prices = {};
+
+PRODUCTS.forEach(p => {
+    quantities[p.id] = 0;
+    const saved = localStorage.getItem('price_' + p.id);
+    prices[p.id] = saved !== null ? parseFloat(saved) : p.defaultPrice;
+});
+
+// ─── Hardcoded Firebase Config (auto-connect) ──────────────────────────────────
+const FIREBASE_CONFIG = {
+    apiKey:            "AIzaSyCr4O5f4ksn_ERv9bNLFTJ8jUJ9yiBDxnw",
+    authDomain:        "kassensystemhoffest.firebaseapp.com",
+    projectId:         "kassensystemhoffest",
+    storageBucket:     "kassensystemhoffest.firebasestorage.app",
+    messagingSenderId: "136724046753",
+    appId:             "1:136724046753:web:05b0cd0a45a3ed04f8e1e0",
+};
+
+// ─── Init ──────────────────────────────────────────────────────────────────────
+window.addEventListener('load', () => {
+    renderProducts();
+    updateOrderSummary();
+    connectFirebase(FIREBASE_CONFIG);
+});
+
+// ─── Firebase Config ───────────────────────────────────────────────────────────
+function getSavedConfig() {
+    try { return JSON.parse(localStorage.getItem('fbConfig') || 'null'); }
+    catch { return null; }
+}
+
+function fillConfigForm(cfg) {
+    document.getElementById('cfg-apiKey').value           = cfg.apiKey            || '';
+    document.getElementById('cfg-authDomain').value       = cfg.authDomain        || '';
+    document.getElementById('cfg-projectId').value        = cfg.projectId         || '';
+    document.getElementById('cfg-storageBucket').value    = cfg.storageBucket     || '';
+    document.getElementById('cfg-messagingSenderId').value= cfg.messagingSenderId || '';
+    document.getElementById('cfg-appId').value            = cfg.appId             || '';
+}
+
+function readConfigForm() {
+    return {
+        apiKey:            document.getElementById('cfg-apiKey').value.trim(),
+        authDomain:        document.getElementById('cfg-authDomain').value.trim(),
+        projectId:         document.getElementById('cfg-projectId').value.trim(),
+        storageBucket:     document.getElementById('cfg-storageBucket').value.trim(),
+        messagingSenderId: document.getElementById('cfg-messagingSenderId').value.trim(),
+        appId:             document.getElementById('cfg-appId').value.trim(),
+    };
+}
+
+function saveAndConnect() {
+    const cfg = readConfigForm();
+    if (!cfg.apiKey || !cfg.projectId) {
+        showToast('API Key und Project ID sind Pflichtfelder!', 'error');
+        return;
+    }
+    localStorage.setItem('fbConfig', JSON.stringify(cfg));
+    connectFirebase(cfg);
+}
+
+function editConfig() {
+    document.getElementById('configOverlay').style.display = 'flex';
+}
+
+function connectFirebase(cfg) {
+    try {
+        if (!firebase.apps.length) {
+            firebase.initializeApp(cfg);
+        }
+        db = firebase.firestore();
+        document.getElementById('configOverlay').style.display = 'none';
+        startListeners();
+        showToast('Verbunden! 🎉', 'success');
+    } catch (err) {
+        showToast('Firebase-Fehler: ' + err.message, 'error');
+        document.getElementById('configOverlay').style.display = 'flex';
+    }
+}
+
+// ─── View Switching ────────────────────────────────────────────────────────────
+function switchView(view, btn) {
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('view-' + view).classList.add('active');
+    btn.classList.add('active');
+}
+
+// ─── Product Rendering ─────────────────────────────────────────────────────────
+function renderProducts() {
+    document.getElementById('productsGrid').innerHTML = PRODUCTS.map(p => `
+        <div class="product-card">
+            <div class="product-emoji">${p.emoji}</div>
+            <div class="product-name">${p.name}</div>
+            <div class="price-row">
+                <span class="euro">€</span>
+                <input
+                    class="price-input"
+                    id="price-${p.id}"
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    value="${prices[p.id].toFixed(2)}"
+                    oninput="onPriceInput('${p.id}', this.value)"
+                    onchange="onPriceInput('${p.id}', this.value)"
+                >
+            </div>
+            <div class="qty-control">
+                <button class="qty-btn minus" id="minus-${p.id}"
+                    onclick="changeQty('${p.id}', -1)" disabled>−</button>
+                <span class="qty-display" id="qty-${p.id}">0</span>
+                <button class="qty-btn plus" onclick="changeQty('${p.id}', 1)">+</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+// ─── Quantity & Price ──────────────────────────────────────────────────────────
+function changeQty(id, delta) {
+    quantities[id] = Math.max(0, quantities[id] + delta);
+    document.getElementById('qty-' + id).textContent = quantities[id];
+    document.getElementById('minus-' + id).disabled = quantities[id] === 0;
+    updateOrderSummary();
+}
+
+function onPriceInput(id, value) {
+    const v = parseFloat(value);
+    if (!isNaN(v) && v >= 0) {
+        prices[id] = v;
+        localStorage.setItem('price_' + id, v);
+        updateOrderSummary();
+    }
+}
+
+// ─── Order Summary ─────────────────────────────────────────────────────────────
+function updateOrderSummary() {
+    const items = PRODUCTS.filter(p => quantities[p.id] > 0);
+    const container = document.getElementById('orderItems');
+
+    if (items.length === 0) {
+        container.innerHTML = '<div class="order-empty">Noch keine Produkte hinzugefügt</div>';
+        document.getElementById('totalAmount').textContent = '€ 0,00';
+        document.getElementById('submitBtn').disabled = true;
+        return;
+    }
+
+    const total = items.reduce((s, p) => s + quantities[p.id] * prices[p.id], 0);
+
+    container.innerHTML = items.map(p => {
+        const sub = quantities[p.id] * prices[p.id];
+        return `
+            <div class="order-item">
+                <span class="order-item-name">${p.emoji} ${p.name} × ${quantities[p.id]}</span>
+                <span class="order-item-price">€ ${fmt(sub)}</span>
+            </div>`;
+    }).join('');
+
+    document.getElementById('totalAmount').textContent = '€ ' + fmt(total);
+    document.getElementById('submitBtn').disabled = false;
+}
+
+// ─── Submit Order ──────────────────────────────────────────────────────────────
+async function submitOrder() {
+    if (!db) { showToast('Nicht mit Firebase verbunden!', 'error'); return; }
+
+    const items = PRODUCTS.filter(p => quantities[p.id] > 0);
+    if (items.length === 0) return;
+
+    const total = items.reduce((s, p) => s + quantities[p.id] * prices[p.id], 0);
+
+    const order = {
+        products: items.map(p => ({
+            id:       p.id,
+            name:     p.name,
+            emoji:    p.emoji,
+            quantity: quantities[p.id],
+            price:    prices[p.id],
+            subtotal: +(quantities[p.id] * prices[p.id]).toFixed(2),
+        })),
+        total:     +total.toFixed(2),
+        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+        status:    'open',
+    };
+
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Wird gesendet…';
+
+    try {
+        await db.collection('orders').add(order);
+        showToast('Bestellung abgeschickt! ✅', 'success');
+        resetOrder();
+    } catch (err) {
+        showToast('Fehler: ' + err.message, 'error');
+        btn.disabled = false;
+        btn.innerHTML = '✅ Bestellung abschicken';
+    }
+}
+
+// ─── Reset Order ───────────────────────────────────────────────────────────────
+function resetOrder() {
+    PRODUCTS.forEach(p => {
+        quantities[p.id] = 0;
+        const qEl  = document.getElementById('qty-' + p.id);
+        const mBtn = document.getElementById('minus-' + p.id);
+        if (qEl)  qEl.textContent = '0';
+        if (mBtn) mBtn.disabled = true;
+    });
+    updateOrderSummary();
+    const btn = document.getElementById('submitBtn');
+    btn.innerHTML = '✅ Bestellung abschicken';
+}
+
+// ─── Firebase Listeners ────────────────────────────────────────────────────────
+function startListeners() {
+    // Open orders → Küche
+    if (unsubOrders) unsubOrders();
+    unsubOrders = db.collection('orders')
+        .where('status', '==', 'open')
+        .orderBy('timestamp', 'asc')
+        .onSnapshot(
+            snap => renderKitchen(snap.docs),
+            err  => handleListenerError(err)
+        );
+
+    // Daily revenue
+    if (unsubRevenue) unsubRevenue();
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    unsubRevenue = db.collection('orders')
+        .where('timestamp', '>=', todayStart)
+        .onSnapshot(
+            snap => {
+                let total = 0;
+                snap.forEach(d => { total += d.data().total || 0; });
+                document.getElementById('dailyRevenue').textContent = '€ ' + fmt(total);
+            },
+            err => console.warn('Revenue listener:', err.message)
+        );
+}
+
+function handleListenerError(err) {
+    if (err.code === 'failed-precondition' && err.message.includes('index')) {
+        const match = err.message.match(/https:\/\/console\.firebase\.google\.com\/\S+/);
+        const msg = match
+            ? '⚠️ Firestore-Index fehlt. Bitte Index erstellen (Link in Konsole).'
+            : '⚠️ Firestore-Index fehlt. Bitte in der Firebase Console erstellen.';
+        showToast(msg, 'error');
+        console.error('Index-URL:', err.message);
+    } else {
+        console.error('Firestore Listener Fehler:', err);
+    }
+}
+
+// ─── Kitchen Rendering ─────────────────────────────────────────────────────────
+function renderKitchen(docs) {
+    const count = docs.length;
+    document.getElementById('orderCountBadge').textContent = count;
+
+    const badge = document.getElementById('tabBadge');
+    badge.textContent = count;
+    badge.style.display = count > 0 ? 'inline-block' : 'none';
+
+    const container = document.getElementById('kitchenOrders');
+
+    if (count === 0) {
+        container.innerHTML = `
+            <div class="no-orders">
+                <div class="icon">🍽️</div>
+                <p>Keine offenen Bestellungen</p>
+            </div>`;
+        return;
+    }
+
+    container.innerHTML = docs.map(doc => {
+        const o   = doc.data();
+        const id  = doc.id;
+        const shortId = '#' + id.slice(-6).toUpperCase();
+        const time = o.timestamp
+            ? o.timestamp.toDate().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
+            : '--:--';
+
+        const itemsHtml = o.products.map(p => `
+            <div class="kitchen-item">
+                <div class="kitchen-item-left">
+                    <span class="item-qty-badge ${p.quantity === 0 ? 'zero' : ''}">${p.quantity}</span>
+                    <span class="kitchen-item-name">${p.emoji} ${p.name}</span>
+                </div>
+                <button class="reduce-btn"
+                    onclick="reduceItem('${id}', '${p.id}')"
+                    ${p.quantity === 0 ? 'disabled' : ''}>−</button>
+            </div>
+        `).join('');
+
+        return `
+            <div class="kitchen-order-card" id="order-${id}">
+                <div class="kitchen-order-top">
+                    <span class="order-number">${shortId}</span>
+                    <span class="order-time">🕐 ${time}</span>
+                </div>
+                ${itemsHtml}
+                <div class="kitchen-order-footer">
+                    <span class="kitchen-total">Gesamt: € ${fmt(o.total || 0)}</span>
+                </div>
+            </div>`;
+    }).join('');
+}
+
+// ─── Reduce Kitchen Item ───────────────────────────────────────────────────────
+async function reduceItem(orderId, productId) {
+    if (!db) return;
+
+    const ref = db.collection('orders').doc(orderId);
+    try {
+        const doc = await ref.get();
+        if (!doc.exists) return;
+
+        const updated = doc.data().products.map(p =>
+            p.id === productId ? { ...p, quantity: Math.max(0, p.quantity - 1) } : p
+        );
+
+        const allDone = updated.every(p => p.quantity === 0);
+
+        await ref.update({
+            products: updated,
+            status:   allDone ? 'done' : 'open',
+        });
+
+        if (allDone) showToast('Bestellung abgeschlossen! ✅', 'success');
+    } catch (err) {
+        showToast('Fehler: ' + err.message, 'error');
+    }
+}
+
+// ─── Helpers ───────────────────────────────────────────────────────────────────
+function fmt(n) {
+    return n.toFixed(2).replace('.', ',');
+}
+
+let toastTimer;
+function showToast(msg, type = '') {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = 'toast ' + type;
+    clearTimeout(toastTimer);
+    requestAnimationFrame(() => {
+        el.classList.add('show');
+        toastTimer = setTimeout(() => el.classList.remove('show'), 3200);
+    });
+}
+</script>
+</body>
+</html>
