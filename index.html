@@ -670,6 +670,12 @@
 
 <!-- ── App Header ───────────────────────────────────────────── -->
 <div class="app-header">
+    <button onclick="openQr()" style="
+        position:absolute; left:14px; top:50%; transform:translateY(-50%);
+        background:rgba(255,255,255,0.15); border:none; color:white;
+        border-radius:8px; padding:6px 11px; font-size:0.85rem; cursor:pointer;">
+        📷
+    </button>
     <h1>🛒 Kassensystem</h1>
     <button onclick="editConfig()" style="
         position:absolute; right:14px; top:50%; transform:translateY(-50%);
@@ -677,6 +683,25 @@
         border-radius:8px; padding:6px 11px; font-size:0.85rem; cursor:pointer;">
         ⚙️
     </button>
+</div>
+
+<!-- ── QR Modal ──────────────────────────────────────────────── -->
+<div id="qrOverlay" onclick="closeQr()" style="
+    display:none; position:fixed; inset:0; background:rgba(10,10,20,0.85);
+    z-index:1000; align-items:center; justify-content:center;">
+    <div onclick="event.stopPropagation()" style="
+        background:white; border-radius:22px; padding:28px 24px;
+        text-align:center; box-shadow:0 8px 30px rgba(0,0,0,0.3);">
+        <div style="font-size:1.1rem; font-weight:700; color:#1a1a2e; margin-bottom:16px;">Kassensystem öffnen</div>
+        <div id="qrCanvas" style="display:inline-block;">
+            <img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=https%3A%2F%2Ftrunz92.github.io%2FKassensystem%2F&color=1a1a2e&bgcolor=ffffff" width="220" height="220" alt="QR Code" style="border-radius:8px;">
+        </div>
+        <div style="margin-top:14px; font-size:0.8rem; color:#999;">trunz92.github.io/Kassensystem</div>
+        <button onclick="closeQr()" style="
+            margin-top:16px; width:100%; padding:12px; border:2px solid #e5e5e5;
+            border-radius:11px; background:transparent; font-size:0.9rem;
+            color:#666; cursor:pointer;">✖ Schließen</button>
+    </div>
 </div>
 
 <!-- ── Tab Navigation ───────────────────────────────────────── -->
@@ -700,9 +725,11 @@
     <div class="daily-revenue">
         <div>
             <div class="label">Tagesumsatz</div>
-            <div class="amount" id="dailyRevenue">€ 0,00</div>
+            <div class="amount" id="dailyRevenue" onclick="toggleRevenue()" style="cursor:pointer;">****</div>
         </div>
-        <div style="font-size:2.2rem">💰</div>
+        <button onclick="resetRevenue()" title="Tagesumsatz zurücksetzen" style="
+            background:none; border:none; font-size:2.2rem; cursor:pointer;
+            padding:0; line-height:1;">💰</button>
     </div>
 
     <!-- Products -->
@@ -739,6 +766,13 @@
             background:#e74c3c; color:white; border-radius:20px;
             padding:5px 14px; font-size:0.9rem; font-weight:800;">0</span>
     </div>
+    <div id="kitchenSummary" style="display:none;
+        background:white; border-radius:18px; padding:16px 18px;
+        box-shadow:0 2px 10px rgba(0,0,0,0.07); margin-bottom:16px;">
+        <div style="font-size:0.8rem; font-weight:700; color:#999;
+            text-transform:uppercase; letter-spacing:0.8px; margin-bottom:12px;">Gesamt offen</div>
+        <div id="kitchenSummaryItems"></div>
+    </div>
     <div id="kitchenOrders">
         <div class="no-orders">
             <div class="icon">🍽️</div>
@@ -756,16 +790,35 @@
 
 // ─── Product Definitions ───────────────────────────────────────────────────────
 const PRODUCTS = [
-    { id: 'pommes', name: 'Pommes', emoji: '🍟', defaultPrice: 3.00 },
-    { id: 'wurst',  name: 'Wurst',  emoji: '🌭', defaultPrice: 3.50 },
+    { id: 'pommes', name: 'Pommes', emoji: '🍟', defaultPrice: 2.50 },
+    { id: 'wurst',  name: 'Wurst',  emoji: '🌭', defaultPrice: 4.50 },
     { id: 'steak',  name: 'Steak',  emoji: '🥩', defaultPrice: 8.00 },
-    { id: 'bier',   name: 'Bier',   emoji: '🍺', defaultPrice: 3.00 },
+    { id: 'bier',   name: 'Bier',   emoji: '🍺', defaultPrice: 5.00 },
+    { id: 'pfand',  name: 'Pfand',  emoji: '🪙', defaultPrice: 5.00, allowNegative: true, kitchenHidden: true },
 ];
+
+let revenueVisible = false;
+let revenueValue = '€ 0,00';
+let qrGenerated = false;
+
+function openQr() {
+    document.getElementById('qrOverlay').style.display = 'flex';
+}
+
+function closeQr() {
+    document.getElementById('qrOverlay').style.display = 'none';
+}
+
+function toggleRevenue() {
+    revenueVisible = !revenueVisible;
+    document.getElementById('dailyRevenue').textContent = revenueVisible ? revenueValue : '****';
+}
 
 // ─── App State ─────────────────────────────────────────────────────────────────
 let db = null;
 let unsubOrders = null;
 let unsubRevenue = null;
+let lastKitchenDocs = [];
 
 const quantities = {};
 const prices = {};
@@ -833,6 +886,14 @@ function editConfig() {
     document.getElementById('configOverlay').style.display = 'flex';
 }
 
+function resetRevenue() {
+    if (!confirm('Tagesumsatz wirklich auf 0 zurücksetzen?')) return;
+    localStorage.setItem('revenueResetAt', Date.now());
+    if (db) startListeners();
+    document.getElementById('configOverlay').style.display = 'none';
+    showToast('Tagesumsatz zurückgesetzt', 'success');
+}
+
 function connectFirebase(cfg) {
     try {
         if (!firebase.apps.length) {
@@ -877,7 +938,7 @@ function renderProducts() {
             </div>
             <div class="qty-control">
                 <button class="qty-btn minus" id="minus-${p.id}"
-                    onclick="changeQty('${p.id}', -1)" disabled>−</button>
+                    onclick="changeQty('${p.id}', -1)" ${p.allowNegative ? '' : 'disabled'}>−</button>
                 <span class="qty-display" id="qty-${p.id}">0</span>
                 <button class="qty-btn plus" onclick="changeQty('${p.id}', 1)">+</button>
             </div>
@@ -887,9 +948,14 @@ function renderProducts() {
 
 // ─── Quantity & Price ──────────────────────────────────────────────────────────
 function changeQty(id, delta) {
-    quantities[id] = Math.max(0, quantities[id] + delta);
+    const product = PRODUCTS.find(p => p.id === id);
+    if (product && product.allowNegative) {
+        quantities[id] += delta;
+    } else {
+        quantities[id] = Math.max(0, quantities[id] + delta);
+    }
     document.getElementById('qty-' + id).textContent = quantities[id];
-    document.getElementById('minus-' + id).disabled = quantities[id] === 0;
+    document.getElementById('minus-' + id).disabled = !(product && product.allowNegative) && quantities[id] === 0;
     updateOrderSummary();
 }
 
@@ -904,7 +970,7 @@ function onPriceInput(id, value) {
 
 // ─── Order Summary ─────────────────────────────────────────────────────────────
 function updateOrderSummary() {
-    const items = PRODUCTS.filter(p => quantities[p.id] > 0);
+    const items = PRODUCTS.filter(p => quantities[p.id] !== 0);
     const container = document.getElementById('orderItems');
 
     if (items.length === 0) {
@@ -933,7 +999,7 @@ function updateOrderSummary() {
 async function submitOrder() {
     if (!db) { showToast('Nicht mit Firebase verbunden!', 'error'); return; }
 
-    const items = PRODUCTS.filter(p => quantities[p.id] > 0);
+    const items = PRODUCTS.filter(p => quantities[p.id] !== 0);
     if (items.length === 0) return;
 
     const total = items.reduce((s, p) => s + quantities[p.id] * prices[p.id], 0);
@@ -974,7 +1040,7 @@ function resetOrder() {
         const qEl  = document.getElementById('qty-' + p.id);
         const mBtn = document.getElementById('minus-' + p.id);
         if (qEl)  qEl.textContent = '0';
-        if (mBtn) mBtn.disabled = true;
+        if (mBtn) mBtn.disabled = !p.allowNegative;
     });
     updateOrderSummary();
     const btn = document.getElementById('submitBtn');
@@ -997,13 +1063,16 @@ function startListeners() {
     if (unsubRevenue) unsubRevenue();
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
+    const resetAt = localStorage.getItem('revenueResetAt');
+    const revenueStart = resetAt && new Date(+resetAt) > todayStart ? new Date(+resetAt) : todayStart;
     unsubRevenue = db.collection('orders')
-        .where('timestamp', '>=', todayStart)
+        .where('timestamp', '>=', revenueStart)
         .onSnapshot(
             snap => {
                 let total = 0;
                 snap.forEach(d => { total += d.data().total || 0; });
-                document.getElementById('dailyRevenue').textContent = '€ ' + fmt(total);
+                revenueValue = '€ ' + fmt(total);
+                document.getElementById('dailyRevenue').textContent = revenueVisible ? revenueValue : '****';
             },
             err => console.warn('Revenue listener:', err.message)
         );
@@ -1024,6 +1093,7 @@ function handleListenerError(err) {
 
 // ─── Kitchen Rendering ─────────────────────────────────────────────────────────
 function renderKitchen(docs) {
+    lastKitchenDocs = docs;
     const count = docs.length;
     document.getElementById('orderCountBadge').textContent = count;
 
@@ -1031,9 +1101,13 @@ function renderKitchen(docs) {
     badge.textContent = count;
     badge.style.display = count > 0 ? 'inline-block' : 'none';
 
+    const summaryEl = document.getElementById('kitchenSummary');
+    const summaryItems = document.getElementById('kitchenSummaryItems');
     const container = document.getElementById('kitchenOrders');
+    container.innerHTML = '';
 
     if (count === 0) {
+        summaryEl.style.display = 'none';
         container.innerHTML = `
             <div class="no-orders">
                 <div class="icon">🍽️</div>
@@ -1042,38 +1116,35 @@ function renderKitchen(docs) {
         return;
     }
 
-    container.innerHTML = docs.map(doc => {
-        const o   = doc.data();
-        const id  = doc.id;
-        const shortId = '#' + id.slice(-6).toUpperCase();
-        const time = o.timestamp
-            ? o.timestamp.toDate().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
-            : '--:--';
+    const totals = {};
+    docs.forEach(doc => {
+        (doc.data().products || []).forEach(p => {
+            const prod = PRODUCTS.find(pr => pr.id === p.id);
+            if (prod && prod.kitchenHidden) return;
+            if (!totals[p.id]) totals[p.id] = { id: p.id, emoji: p.emoji, name: p.name, qty: 0 };
+            totals[p.id].qty += p.quantity;
+        });
+    });
 
-        const itemsHtml = o.products.map(p => `
-            <div class="kitchen-item">
-                <div class="kitchen-item-left">
-                    <span class="item-qty-badge ${p.quantity === 0 ? 'zero' : ''}">${p.quantity}</span>
-                    <span class="kitchen-item-name">${p.emoji} ${p.name}</span>
-                </div>
-                <button class="reduce-btn"
-                    onclick="reduceItem('${id}', '${p.id}')"
-                    ${p.quantity === 0 ? 'disabled' : ''}>−</button>
+    summaryItems.innerHTML = Object.values(totals).map(t => `
+        <div style="display:flex; justify-content:space-between; align-items:center;
+            padding:10px 0; border-bottom:1px solid #f3f3f3;">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <span style="font-size:1.5rem;">${t.emoji}</span>
+                <span style="font-weight:700; font-size:1.05rem; color:#1a1a2e;">${t.name}</span>
             </div>
-        `).join('');
+            <div style="display:flex; align-items:center; gap:10px;">
+                <span style="background:#f39c12; color:white; border-radius:8px;
+                    padding:4px 14px; font-weight:800; font-size:1.1rem;">${t.qty}</span>
+                <button onclick="reduceProductTotal('${t.id}')"
+                    style="width:44px;height:44px;border:none;border-radius:11px;
+                    background:#fde8e8;color:#e74c3c;font-size:1.5rem;font-weight:700;
+                    cursor:pointer;display:flex;align-items:center;justify-content:center;"
+                    ${t.qty === 0 ? 'disabled' : ''}>−</button>
+            </div>
+        </div>`).join('');
 
-        return `
-            <div class="kitchen-order-card" id="order-${id}">
-                <div class="kitchen-order-top">
-                    <span class="order-number">${shortId}</span>
-                    <span class="order-time">🕐 ${time}</span>
-                </div>
-                ${itemsHtml}
-                <div class="kitchen-order-footer">
-                    <span class="kitchen-total">Gesamt: € ${fmt(o.total || 0)}</span>
-                </div>
-            </div>`;
-    }).join('');
+    summaryEl.style.display = 'block';
 }
 
 // ─── Reduce Kitchen Item ───────────────────────────────────────────────────────
@@ -1089,7 +1160,9 @@ async function reduceItem(orderId, productId) {
             p.id === productId ? { ...p, quantity: Math.max(0, p.quantity - 1) } : p
         );
 
-        const allDone = updated.every(p => p.quantity === 0);
+        const allDone = updated
+            .filter(p => { const prod = PRODUCTS.find(pr => pr.id === p.id); return !prod || !prod.kitchenHidden; })
+            .every(p => p.quantity === 0);
 
         await ref.update({
             products: updated,
@@ -1100,6 +1173,15 @@ async function reduceItem(orderId, productId) {
     } catch (err) {
         showToast('Fehler: ' + err.message, 'error');
     }
+}
+
+// ─── Reduce from Summary ───────────────────────────────────────────────────────
+async function reduceProductTotal(productId) {
+    const doc = lastKitchenDocs.find(d =>
+        (d.data().products || []).some(p => p.id === productId && p.quantity > 0)
+    );
+    if (!doc) return;
+    await reduceItem(doc.id, productId);
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
